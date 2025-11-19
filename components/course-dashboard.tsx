@@ -21,11 +21,24 @@ export function CourseDashboard() {
 
 
   useEffect(() => {
-    axios.get("http://127.0.0.1:8000/api/v1/course/", { timeout: 5000 })
+
+    axios.get("http://127.0.0.1:8001/api/course/all", { timeout: 5000 })
       .then(res => {
 
-        setCourses(res.data)
+        let data = res.data;
+        if (Array.isArray(data) && Array.isArray(data[0])) {
+          data = data[0];
+        }
+        const courses: Course[] = data.map((item: any) => ({
+          id: item.id?.toString() || '',
+          name: item.name ?? item.name ?? '',
+          instructor: item.instructor ?? item.instructor ?? '',
+          category: item.category ?? item.category ?? '',
+          schedule: item.schedule ?? item.schedule ?? '',
 
+
+        }));
+        setCourses(courses);
       })
       .catch(err => {
         if (err.response) {
@@ -38,7 +51,6 @@ export function CourseDashboard() {
       });
 
   }, [courses]);
-
 
 
 
@@ -63,14 +75,14 @@ export function CourseDashboard() {
   const handleAddCourse = async () => {
     if (formData.name && formData.instructor && formData.category) {
       try {
-        const res = await axios.post("http://127.0.0.1:8000/api/v1/course/add/", {
+        const res = await axios.post("http://127.0.0.1:8001/api/course/add", {
           name: formData.name,
           category: formData.category,
           instructor: formData.instructor,
           schedule: formData.schedule
         });
         setCourses(res.data);
-        setFormData({ name: "", category: "", instructor: "", schedule:"" });
+        setFormData({ name: "", category: "", instructor: "", schedule: "" });
         setShowForm(false);
 
       } catch (error) {
@@ -92,7 +104,7 @@ export function CourseDashboard() {
   }
 
   const handleDeleteCourse = async (id: string) => {
-     if (!id) return;
+    if (!id) return;
 
     const confirmDelete = window.confirm("Are you sure you want to delete this student?");
 
@@ -100,7 +112,7 @@ export function CourseDashboard() {
 
     try {
       const res = await axios.delete(
-        `http://127.0.0.1:8000/api/v1/course/${id}/delete/`,
+        `http://127.0.0.1:8001/api/course/delete/${id}`,
         {
           headers: {
             "Content-Type": "application/json",
@@ -135,7 +147,7 @@ export function CourseDashboard() {
       try {
 
         const res = await axios.put(
-          `http://127.0.0.1:8000/api/v1/course/${editingCourse.id}/update/`,
+          `http://127.0.0.1:8001/api/course/update/${editingCourse.id}`,
           {
             name: editingCourse.name,
             schedule: editingCourse.schedule,
@@ -175,30 +187,8 @@ export function CourseDashboard() {
   //search
   const searchValue = async (e: String) => {
     if (!searchTerm) {
-      try {
-
-        const res = await axios.get(
-          `http://127.0.0.1:8000/api/v1/course/search?q=${e}`,
-          {
-            headers: {
-              "Content-Type": "application/json",
-            },
-            timeout: 5000,
-          }
-        );
-        console.log("✅ course updated:", res.status, res.data);
-
-      } catch (err: any) {
-        alert()
-        if (axios.isAxiosError(err)) {
-          console.error(
-            " update failed:",
-            err.response?.data || err.message || "Unknown error"
-          );
-        } else {
-          console.error(" Unexpected error:", err);
-        }
-      }
+      setCourses(courses);
+      
     }
   }
 
