@@ -1,0 +1,93 @@
+.container {
+  max-width: 900px;
+  margin: 40px auto;
+  padding: 30px;
+  background: #f7f9fc;
+  border-radius: 12px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+  font-family: "Poppins", sans-serif;
+}
+
+.title {
+  text-align: center;
+  margin-bottom: 25px;
+  font-size: 28px;
+  font-weight: 600;
+  color: #2c3e50;
+}
+
+.form {
+  display: flex;
+  gap: 15px;
+  flex-wrap: wrap;
+  justify-content: center;
+  margin-bottom: 30px;
+}
+
+.inputField {
+  padding: 10px 15px;
+  border-radius: 8px;
+  border: 1px solid #cbd5e1;
+  font-size: 16px;
+  min-width: 200px;
+}
+
+.addButton {
+  padding: 10px 20px;
+  background: #3498db;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  font-size: 16px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.addButton:hover {
+  background: #2980b9;
+}
+
+.listWrapper {
+  overflow-x: auto;
+}
+
+.enrollmentList {
+  width: 100%;
+  border-collapse: collapse;
+  background-color: white;
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+}
+
+.enrollmentList th,
+.enrollmentList td {
+  padding: 12px 15px;
+  text-align: left;
+}
+
+.enrollmentList th {
+  background: #3498db;
+  color: white;
+  font-weight: 600;
+}
+
+.enrollmentList tr:nth-child(even) {
+  background: #f4f6f9;
+}
+
+.deleteButton {
+  background: #e74c3c;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  padding: 6px 12px;
+  cursor: pointer;
+  font-size: 14px;
+  transition: all 0.2s;
+}
+
+.deleteButton:hover {
+  background: #c0392b;
+}
