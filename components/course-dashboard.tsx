@@ -1,10 +1,11 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { BookOpen, Search, Plus, Edit2, Trash2, Users, Clock, TrendingUp, X } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card } from "@/components/ui/card"
+import axios from "axios"
 
 interface Course {
   id: string
@@ -12,49 +13,52 @@ interface Course {
   instructor: string
   category: string
   schedule: string
-  students: number
-  credits: number
+
 }
 
 export function CourseDashboard() {
-  const [courses, setCourses] = useState<Course[]>([
-    {
-      id: "1",
-      name: "Machine Learning Basics",
-      instructor: "Dr. Karim",
-      category: "AI",
-      schedule: "Mon-Wed 10:00 AM",
-      students: 28,
-      credits: 3,
-    },
-    {
-      id: "2",
-      name: "Data Science Fundamentals",
-      instructor: "Prof. Sarah",
-      category: "Data Science",
-      schedule: "Tue-Thu 2:00 PM",
-      students: 35,
-      credits: 4,
-    },
-    {
-      id: "3",
-      name: "Web Development",
-      instructor: "Eng. Mohamed",
-      category: "Web",
-      schedule: "Wed-Fri 9:00 AM",
-      students: 22,
-      credits: 3,
-    },
-    {
-      id: "4",
-      name: "Database Systems",
-      instructor: "Prof. Amina",
-      category: "Databases",
-      schedule: "Mon-Wed 1:00 PM",
-      students: 18,
-      credits: 3,
-    },
-  ])
+  const [courses, setCourses] = useState<Course[]>([]);
+
+
+  const fetchStudents = () => {
+    axios.get("http://127.0.0.1:8001/api/course/all", { timeout: 5000 })
+      .then(res => {
+
+        let data = res.data;
+        if (Array.isArray(data) && Array.isArray(data[0])) {
+          data = data[0];
+        }
+        const courses: Course[] = data.map((item: any) => ({
+          id: item.id?.toString() || '',
+          name: item.name ?? item.name ?? '',
+          instructor: item.instructor ?? item.instructor ?? '',
+          category: item.category ?? item.category ?? '',
+          schedule: item.schedule ?? item.schedule ?? '',
+
+
+        }));
+        setCourses(courses);
+      })
+      .catch(err => {
+        if (err.response) {
+          console.error("Server responded with error:", err.response);
+        } else if (err.request) {
+          console.error("No response received:", err.request);
+        } else {
+          console.error("Axios error:", err.message);
+        }
+      });
+  }
+
+  useEffect(() => {
+
+    fetchStudents()
+
+  }, []);
+
+
+
+
   const [searchTerm, setSearchTerm] = useState("")
   const [showForm, setShowForm] = useState(false)
   const [formData, setFormData] = useState({ name: "", instructor: "", category: "", schedule: "" })
@@ -63,38 +67,119 @@ export function CourseDashboard() {
   const [showEnrollmentModal, setShowEnrollmentModal] = useState(false)
   const [showEditModal, setShowEditModal] = useState(false)
 
-  const filteredCourses = courses.filter(
-    (course) =>
-      course.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      course.instructor.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      course.category.toLowerCase().includes(searchTerm.toLowerCase()),
-  )
+  const filteredCourses = Array.isArray(courses)
+    ? courses.filter((course) =>
+      (course.name || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (course.instructor || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (course.category || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (course.schedule || '').toLowerCase().includes(searchTerm.toLowerCase())
+    )
+    : [];
 
-  const handleAddCourse = () => {
+  const handleAddCourse = async () => {
     if (formData.name && formData.instructor && formData.category) {
-      const newCourse: Course = {
-        id: Date.now().toString(),
-        ...formData,
-        students: 0,
-        credits: 3,
+      try {
+        const res = await axios.post("http://127.0.0.1:8001/api/course/add", {
+          name: formData.name,
+          category: formData.category,
+          instructor: formData.instructor,
+          schedule: formData.schedule
+        });
+        setCourses(res.data);
+        fetchStudents()
+        setFormData({ name: "", category: "", instructor: "", schedule: "" });
+        setShowForm(false);
+
+      } catch (error) {
+
+        if (axios.isAxiosError(error)) {
+          if (error.response) {
+            console.error("Server responded with error:", error.response);
+          } else if (error.request) {
+            console.error("No response received:", error.request);
+          } else {
+            console.error("Axios error:", error.message);
+          }
+        } else {
+
+          console.error("Unexpected error:", error);
+        }
       }
-      setCourses([...courses, newCourse])
-      setFormData({ name: "", instructor: "", category: "", schedule: "" })
-      setShowForm(false)
     }
   }
 
-  const handleDeleteCourse = (id: string) => {
-    setCourses(courses.filter((c) => c.id !== id))
+  const handleDeleteCourse = async (id: string) => {
+    if (!id) return;
+
+    const confirmDelete = window.confirm("Are you sure you want to delete this student?");
+
+    if (!confirmDelete) return;
+
+    try {
+      const res = await axios.delete(
+        `http://127.0.0.1:8001/api/course/delete/${id}`,
+        {
+          headers: {
+            "Content-Type": "application/json",
+          },
+          timeout: 5000,
+        }
+      );
+
+      console.log("✅ Student deleted:", res.status, res.data);
+
+      setCourses((prev) => prev.filter((s) => s.id !== id));
+
+    } catch (err: any) {
+      if (axios.isAxiosError(err)) {
+        console.error(
+          "❌ Delete failed:",
+          err.response?.data || err.message || "Unknown error"
+        );
+      } else {
+        console.error("❌ Unexpected error:", err);
+      }
+    }
   }
 
   const handleEditCourse = (course: Course) => {
     setEditingCourse({ ...course })
     setShowEditModal(true)
   }
-
-  const handleSaveEdit = () => {
+  // update
+  const handleSaveEdit = async () => {
     if (editingCourse) {
+      try {
+
+        const res = await axios.put(
+          `http://127.0.0.1:8001/api/course/update/${editingCourse.id}`,
+          {
+            name: editingCourse.name,
+            schedule: editingCourse.schedule,
+            instructor: editingCourse.instructor,
+            category: editingCourse.category,
+          },
+          {
+            headers: {
+              "Content-Type": "application/json",
+            },
+            timeout: 5000,
+          }
+        );
+        fetchStudents()
+        console.log("✅ course updated:", res.status, res.data);
+
+      } catch (err: any) {
+        alert()
+        if (axios.isAxiosError(err)) {
+          console.error(
+            " update failed:",
+            err.response?.data || err.message || "Unknown error"
+          );
+        } else {
+          console.error(" Unexpected error:", err);
+        }
+      }
       setCourses(courses.map((c) => (c.id === editingCourse.id ? editingCourse : c)))
       setShowEditModal(false)
       setEditingCourse(null)
@@ -104,6 +189,13 @@ export function CourseDashboard() {
   const handleManageEnrollment = (course: Course) => {
     setSelectedCourse(course)
     setShowEnrollmentModal(true)
+  }
+  //search
+  const searchValue = async (e: String) => {
+    if (!searchTerm) {
+      setCourses(courses);
+      
+    }
   }
 
   const categoryColors: Record<string, { bg: string; text: string; border: string }> = {
@@ -130,14 +222,20 @@ export function CourseDashboard() {
         </div>
       </div>
 
-      {/* Controls */}
+
       <div className="mb-8 flex flex-col md:flex-row gap-4">
         <div className="flex-1 relative">
           <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-slate-500" />
           <Input
             placeholder="Search courses by name, instructor, or category..."
             value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
+            onChange={
+              (e) => {
+                setSearchTerm(e.target.value);
+                searchValue(e.target.value);
+              }
+
+            }
             className="pl-10 bg-slate-50 border-slate-300 focus:border-cyan-400"
           />
         </div>
@@ -241,7 +339,7 @@ export function CourseDashboard() {
                 <div className="flex items-center gap-2 text-sm text-slate-700">
                   <Users className="w-4 h-4 text-blue-500" />
                   <span>
-                    {course.students} students • {course.credits} credits
+                    {0} students • {0} credits
                   </span>
                 </div>
               </div>
@@ -283,7 +381,8 @@ export function CourseDashboard() {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-slate-600 text-sm mb-1 font-medium">Total Enrollment</p>
-              <p className="text-4xl font-bold text-blue-600">{courses.reduce((acc, c) => acc + c.students, 0)}</p>
+              <p className="text-4xl font-bold text-blue-600">{Array.isArray(courses)
+                ? courses.reduce((acc, c) => acc, 0) : 0}</p>
             </div>
             <Users className="w-10 h-10 text-blue-400/30" />
           </div>
@@ -293,7 +392,8 @@ export function CourseDashboard() {
             <div>
               <p className="text-slate-600 text-sm mb-1 font-medium">Avg/Course</p>
               <p className="text-4xl font-bold text-slate-700">
-                {(courses.reduce((acc, c) => acc + c.students, 0) / courses.length).toFixed(1)}
+                {Array.isArray(courses)
+                  ? (courses.reduce((acc, c) => acc + 0, 0) / courses.length).toFixed(1) : 0}
               </p>
             </div>
             <TrendingUp className="w-10 h-10 text-slate-400/30" />
@@ -371,19 +471,19 @@ export function CourseDashboard() {
               </div>
               <div>
                 <p className="text-sm text-slate-600 font-medium">Current Enrollment</p>
-                <p className="text-slate-900 font-semibold">{selectedCourse.students} students</p>
+                <p className="text-slate-900 font-semibold">{0} students</p>
               </div>
               <div>
                 <label className="text-sm text-slate-600 font-medium">Update Enrollment Count</label>
                 <Input
                   type="number"
-                  defaultValue={selectedCourse.students}
+                  defaultValue={0}
                   className="mt-2 bg-slate-50 border-slate-300"
                 />
               </div>
               <div>
                 <p className="text-sm text-slate-600 font-medium">Credits</p>
-                <p className="text-slate-900 font-semibold">{selectedCourse.credits} credits</p>
+                <p className="text-slate-900 font-semibold">{0} credits</p>
               </div>
             </div>
             <Button

@@ -5,6 +5,7 @@ import { Send, Copy, CheckCircle2, Sparkles } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
 import { Textarea } from "@/components/ui/textarea"
+import axios from "axios"
 
 interface Message {
   id: string
@@ -28,25 +29,51 @@ export function ChatbotInterface() {
     },
   ])
   const [copied, setCopied] = useState<string | null>(null)
+  const userMessage: Message = {
+    id: Date.now().toString(),
+    type: "user",
+    content: input,
+    timestamp: new Date(),
+  }
 
   const handleSendMessage = async () => {
     if (!input.trim()) return
 
-    const userMessage: Message = {
-      id: Date.now().toString(),
-      type: "user",
-      content: input,
-      timestamp: new Date(),
-    }
+
     setMessages((prev) => [...prev, userMessage])
     setInput("")
 
-    setTimeout(() => {
+    setTimeout(async () => {
       let botResponse = ""
       if (mode === "translate") {
-        botResponse = `🌐 Translation: "${input}" - Ready to be translated! In production, this connects to your translation microservice for real-time language conversion.`
+
+        try {
+          const res = await axios.post("http://localhost:8001/api/chatbot/translate/", {
+            "text": input
+          });
+          alert(res.data)
+          botResponse = res.data['translation']
+        } catch (error) {
+          if (axios.isAxiosError(error)) {
+            alert("Axios error:" + error);
+          } else {
+            alert("Unexpected error:");
+          }
+        }
       } else {
-        botResponse = `📊 Summary: Your document (${input.split(" ").length} words) has been analyzed. Key points extracted and condensed for quick reading. Connects to your summarization service.`
+        try {
+          const res = await axios.post("http://localhost:8001/api/chatbot/summarize/", {
+            "text": input
+          });
+         
+          botResponse = res.data['summary']
+        } catch (error) {
+          if (axios.isAxiosError(error)) {
+            console.log("Axios error:" + error);
+          } else {
+             console.log("Unexpected error:");
+          }
+        }
       }
 
       const botMessage: Message = {
@@ -91,11 +118,10 @@ export function ChatbotInterface() {
           <button
             key={m.id}
             onClick={() => setMode(m.id)}
-            className={`flex-1 px-4 py-3 rounded-lg border transition-all text-left ${
-              mode === m.id
-                ? "bg-gradient-to-r from-purple-500 to-pink-500 text-white border-purple-400 shadow-lg shadow-purple-500/20"
-                : "bg-white border-slate-300 hover:border-purple-300 text-slate-900"
-            }`}
+            className={`flex-1 px-4 py-3 rounded-lg border transition-all text-left ${mode === m.id
+              ? "bg-gradient-to-r from-purple-500 to-pink-500 text-white border-purple-400 shadow-lg shadow-purple-500/20"
+              : "bg-white border-slate-300 hover:border-purple-300 text-slate-900"
+              }`}
           >
             <div className="font-bold text-sm">{m.label}</div>
             <div className="text-xs opacity-75">{m.desc}</div>
@@ -110,11 +136,10 @@ export function ChatbotInterface() {
           {messages.map((message) => (
             <div key={message.id} className={`flex ${message.type === "user" ? "justify-end" : "justify-start"}`}>
               <div
-                className={`max-w-md px-4 py-3 rounded-xl ${
-                  message.type === "user"
-                    ? "bg-gradient-to-r from-blue-500 to-cyan-400 text-white rounded-br-none shadow-lg shadow-blue-500/20"
-                    : "bg-gradient-to-r from-slate-200 to-slate-100 text-slate-900 rounded-bl-none"
-                }`}
+                className={`max-w-md px-4 py-3 rounded-xl ${message.type === "user"
+                  ? "bg-gradient-to-r from-blue-500 to-cyan-400 text-white rounded-br-none shadow-lg shadow-blue-500/20"
+                  : "bg-gradient-to-r from-slate-200 to-slate-100 text-slate-900 rounded-bl-none"
+                  }`}
               >
                 <p className="text-sm leading-relaxed">{message.content}</p>
                 <div className="flex items-center justify-between mt-2 gap-2">
