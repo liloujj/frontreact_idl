@@ -23,63 +23,66 @@ export default function EnrollmentPage() {
   const [students, setStudents] = useState<Student[]>([])
   const [courses, setCourses] = useState<Course[]>([])
   const [enrollments, setEnrollments] = useState<Enrollment[]>([])
-
   const [selectedStudent, setSelectedStudent] = useState<number | "">("")
   const [selectedCourse, setSelectedCourse] = useState<number | "">("")
-
   const [loading, setLoading] = useState(false)
-  const [error, setError] = useState("")
+  const [error, setError] = useState<string | null>(null)
 
-  // -------------------------
-  // FETCHERS
-  // -------------------------
+  const API_URL = "http://localhost:8080"
+
   const fetchStudents = async () => {
     try {
-      const res = await fetch("http://localhost:8080/students")
+      setLoading(true)
+      setError(null)
+      const res = await fetch(`${API_URL}/students`)
+      if (!res.ok) throw new Error("Failed to fetch students")
       setStudents(await res.json())
-    } catch (err) {
-      setError("Failed to load students")
+    } catch (err: any) {
+      setError(err.message)
+    } finally {
+      setLoading(false)
     }
   }
 
   const fetchCourses = async () => {
     try {
-      const res = await fetch("http://localhost:8080/courses")
+      setLoading(true)
+      setError(null)
+      const res = await fetch(`${API_URL}/courses`)
+      if (!res.ok) throw new Error("Failed to fetch courses")
       setCourses(await res.json())
-    } catch (err) {
-      setError("Failed to load courses")
+    } catch (err: any) {
+      setError(err.message)
+    } finally {
+      setLoading(false)
     }
   }
 
   const fetchEnrollments = async () => {
     try {
-      const res = await fetch("http://localhost:8080/enrollments")
+      setLoading(true)
+      setError(null)
+      const res = await fetch(`${API_URL}/enrollments`)
+      if (!res.ok) throw new Error("Failed to fetch enrollments")
       setEnrollments(await res.json())
-    } catch (err) {
-      setError("Failed to load enrollments")
+    } catch (err: any) {
+      setError(err.message)
+    } finally {
+      setLoading(false)
     }
   }
 
-  // -------------------------
-  // ADD ENROLLMENT
-  // -------------------------
   const addEnrollment = async () => {
-    if (!selectedStudent || !selectedCourse)
-      return alert("Select a student and a course")
+    if (!selectedStudent || !selectedCourse) return alert("Select a student and a course")
 
     const exists = enrollments.some(
-      (e) =>
-        e.student_id === selectedStudent &&
-        e.course_id === selectedCourse
+      (e) => e.student_id === selectedStudent && e.course_id === selectedCourse
     )
-
-    if (exists) {
-      return alert("This student is already enrolled in this course.")
-    }
+    if (exists) return alert("This student is already enrolled in this course.")
 
     try {
       setLoading(true)
-      const res = await fetch("http://localhost:8080/enrollments", {
+      const res = await fetch(`${API_URL}/enrollments`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -87,37 +90,28 @@ export default function EnrollmentPage() {
           course_id: selectedCourse,
         }),
       })
-
-      if (!res.ok) {
-        return alert("Error creating enrollment")
-      }
-
+      if (!res.ok) throw new Error("Failed to create enrollment")
       setSelectedStudent("")
       setSelectedCourse("")
       fetchEnrollments()
-    } catch (err) {
-      setError("Failed to add enrollment")
+    } catch (err: any) {
+      setError(err.message)
     } finally {
       setLoading(false)
     }
   }
 
-  // -------------------------
-  // DELETE ENROLLMENT
-  // -------------------------
   const deleteEnrollment = async (id: number) => {
+    if (!confirm("Are you sure you want to delete this enrollment?")) return
     try {
-      const res = await fetch(`http://localhost:8080/enrollments/${id}`, {
-        method: "DELETE",
-      })
-
-      if (!res.ok) {
-        return alert("Error deleting enrollment")
-      }
-
+      setLoading(true)
+      const res = await fetch(`${API_URL}/enrollments/${id}`, { method: "DELETE" })
+      if (!res.ok) throw new Error("Failed to delete enrollment")
       fetchEnrollments()
-    } catch (err) {
-      setError("Failed to delete enrollment")
+    } catch (err: any) {
+      setError(err.message)
+    } finally {
+      setLoading(false)
     }
   }
 
@@ -133,9 +127,7 @@ export default function EnrollmentPage() {
         Enrollment Management
       </h1>
 
-      {error && (
-        <p className="text-red-500 text-center mb-6">{error}</p>
-      )}
+      {error && <p className="text-red-500 text-center mb-6">{error}</p>}
 
       {/* Form */}
       <div className="flex flex-col md:flex-row gap-4 justify-center items-center mb-12">
@@ -167,19 +159,22 @@ export default function EnrollmentPage() {
 
         <button
           onClick={addEnrollment}
-          className="bg-blue-700 text-white px-7 py-3 rounded-xl shadow-lg hover:bg-blue-800 hover:scale-105 transform transition-all duration-300"
+          disabled={loading}
+          className="bg-blue-700 text-white px-7 py-3 rounded-xl shadow-lg hover:bg-blue-800 hover:scale-105 transform transition-all duration-300 disabled:opacity-50"
         >
-          {loading ? "Adding..." : "+ Enroll"}
+          {loading ? "Processing..." : "+ Enroll"}
         </button>
       </div>
 
       {/* Enrollments */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
-        {enrollments.length === 0 ? (
+        {loading && <p className="col-span-full text-center text-blue-500">Loading...</p>}
+        {!loading && enrollments.length === 0 && (
           <p className="col-span-full text-center text-blue-400 mt-8 text-lg">
             No enrollments yet.
           </p>
-        ) : (
+        )}
+        {!loading &&
           enrollments.map((e) => {
             const student = students.find((s) => s.id === e.student_id)
             const course = courses.find((c) => c.id === e.course_id)
@@ -192,9 +187,7 @@ export default function EnrollmentPage() {
                 <h2 className="text-2xl font-bold text-blue-900 mb-2">
                   {student ? `${student.first_name} ${student.last_name}` : "Unknown Student"}
                 </h2>
-                <p className="text-blue-700 mb-4">
-                  {course ? course.name : "Unknown Course"}
-                </p>
+                <p className="text-blue-700 mb-4">{course ? course.name : "Unknown Course"}</p>
                 <button
                   onClick={() => deleteEnrollment(e.id)}
                   className="absolute top-4 right-4 text-red-500 hover:text-red-600 font-semibold transition-colors"
@@ -204,8 +197,7 @@ export default function EnrollmentPage() {
                 </button>
               </div>
             )
-          })
-        )}
+          })}
       </div>
     </div>
   )

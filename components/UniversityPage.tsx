@@ -12,39 +12,57 @@ export default function UniversityPage() {
   const [universities, setUniversities] = useState<University[]>([])
   const [name, setName] = useState("")
   const [location, setLocation] = useState("")
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  const API_URL = "http://localhost:8080/universities"
 
   const fetchUniversities = async () => {
     try {
-      const res = await fetch("http://localhost:8080/universities")
-      const data = await res.json()
+      setLoading(true)
+      setError(null)
+      const res = await fetch(API_URL)
+      if (!res.ok) throw new Error("Failed to fetch universities")
+      const data: University[] = await res.json()
       setUniversities(data)
-    } catch (err) {
-      console.error("Failed to fetch universities:", err)
+    } catch (err: any) {
+      setError(err.message || "An error occurred")
+    } finally {
+      setLoading(false)
     }
   }
 
   const addUniversity = async () => {
     if (!name || !location) return alert("Fill all fields")
     try {
-      await fetch("http://localhost:8080/universities", {
+      setLoading(true)
+      const res = await fetch(API_URL, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ name, location }),
       })
+      if (!res.ok) throw new Error("Failed to add university")
       setName("")
       setLocation("")
       fetchUniversities()
-    } catch (err) {
-      console.error("Failed to add university:", err)
+    } catch (err: any) {
+      setError(err.message)
+    } finally {
+      setLoading(false)
     }
   }
 
   const deleteUniversity = async (id: number) => {
+    if (!confirm("Are you sure you want to delete this university?")) return
     try {
-      await fetch(`http://localhost:8080/universities/${id}`, { method: "DELETE" })
+      setLoading(true)
+      const res = await fetch(`${API_URL}/${id}`, { method: "DELETE" })
+      if (!res.ok) throw new Error("Failed to delete university")
       fetchUniversities()
-    } catch (err) {
-      console.error("Failed to delete university:", err)
+    } catch (err: any) {
+      setError(err.message)
+    } finally {
+      setLoading(false)
     }
   }
 
@@ -57,6 +75,9 @@ export default function UniversityPage() {
       <h1 className="text-5xl font-extrabold text-blue-900 mb-12 text-center drop-shadow-lg">
         University Management
       </h1>
+
+      {/* Error */}
+      {error && <p className="text-center text-red-500 mb-4">{error}</p>}
 
       {/* Form */}
       <div className="flex flex-col md:flex-row gap-4 justify-center items-center mb-12">
@@ -74,7 +95,8 @@ export default function UniversityPage() {
         />
         <button
           onClick={addUniversity}
-          className="bg-blue-700 text-white px-7 py-3 rounded-xl shadow-lg hover:bg-blue-800 hover:scale-105 transform transition-all duration-300"
+          disabled={loading}
+          className="bg-blue-700 text-white px-7 py-3 rounded-xl shadow-lg hover:bg-blue-800 hover:scale-105 transform transition-all duration-300 disabled:opacity-50"
         >
           + Add University
         </button>
@@ -82,7 +104,8 @@ export default function UniversityPage() {
 
       {/* Universities Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
-        {universities.length > 0 ? (
+        {loading && <p className="col-span-full text-center text-blue-500">Loading...</p>}
+        {!loading && universities.length > 0 ? (
           universities.map((u) => (
             <div
               key={u.id}
@@ -100,9 +123,11 @@ export default function UniversityPage() {
             </div>
           ))
         ) : (
-          <p className="col-span-full text-center text-blue-300 mt-8 text-lg">
-            No universities found.
-          </p>
+          !loading && (
+            <p className="col-span-full text-center text-blue-300 mt-8 text-lg">
+              No universities found.
+            </p>
+          )
         )}
       </div>
     </div>

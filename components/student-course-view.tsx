@@ -1,6 +1,7 @@
 "use client"
-import { useState } from "react"
-import { BookOpen, Users, Search } from "lucide-react"
+
+import { useEffect, useState } from "react"
+import { BookOpen, Users, Search, Trash2, PlusCircle, Edit3 } from "lucide-react"
 import { Card } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 
@@ -28,47 +29,214 @@ interface Enrollment {
 }
 
 export default function StudentCourseView() {
-  const [enrollments, setEnrollments] = useState<Enrollment[]>([
-    {
-      id: "1",
-      student: { id: "1", firstName: "Ahmed", lastName: "Benmessaoud", email: "ahmed@univ.edu" },
-      course: { id: "1", name: "Machine Learning", instructor: "Dr. Karim", category: "AI", credits: 3 },
-      progress: 85,
-      grade: "A",
-    },
-    {
-      id: "2",
-      student: { id: "2", firstName: "Fatima", lastName: "Zahra", email: "fatima@univ.edu" },
-      course: { id: "2", name: "Data Science", instructor: "Prof. Sarah", category: "DS", credits: 4 },
-      progress: 72,
-      grade: "B+",
-    },
-  ])
-  const [searchTerm, setSearchTerm] = useState("")
+  const [students, setStudents] = useState<Student[]>([])
+  const [courses, setCourses] = useState<Course[]>([])
+  const [enrollments, setEnrollments] = useState<Enrollment[]>([])
 
+  const [selectedStudent, setSelectedStudent] = useState<string>("")
+  const [selectedCourse, setSelectedCourse] = useState<string>("")
+  const [progress, setProgress] = useState<number>(0)
+  const [grade, setGrade] = useState<string>("")
+
+  const [searchTerm, setSearchTerm] = useState("")
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState("")
+
+  const [editingId, setEditingId] = useState<string | null>(null)
+
+  // -------------------------
+  // FETCH DATA
+  // -------------------------
+  const fetchStudents = async () => {
+    try {
+      const res = await fetch("http://localhost:8080/students")
+      if (!res.ok) throw new Error("Failed to fetch students")
+      setStudents(await res.json())
+    } catch (err: any) {
+      console.error(err)
+      setError(err.message || "Failed to load students")
+    }
+  }
+
+  const fetchCourses = async () => {
+    try {
+      const res = await fetch("http://localhost:8080/courses")
+      if (!res.ok) throw new Error("Failed to fetch courses")
+      setCourses(await res.json())
+    } catch (err: any) {
+      console.error(err)
+      setError(err.message || "Failed to load courses")
+    }
+  }
+
+  const fetchEnrollments = async () => {
+    setLoading(true)
+    setError("")
+    try {
+      const res = await fetch("http://localhost:8080/enrollments")
+      if (!res.ok) throw new Error("Failed to fetch enrollments")
+      setEnrollments(await res.json())
+    } catch (err: any) {
+      console.error(err)
+      setError(err.message || "Failed to load enrollments")
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    fetchStudents()
+    fetchCourses()
+    fetchEnrollments()
+  }, [])
+
+  // -------------------------
+  // ADD OR EDIT ENROLLMENT
+  // -------------------------
+  const saveEnrollment = async () => {
+    if (!selectedStudent || !selectedCourse) return alert("Select student and course")
+
+    const payload = {
+      student_id: selectedStudent,
+      course_id: selectedCourse,
+      progress,
+      grade,
+    }
+
+    try {
+      if (editingId) {
+        // EDIT
+        const res = await fetch(`http://localhost:8080/enrollments/${editingId}`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        })
+        if (!res.ok) throw new Error("Failed to update enrollment")
+      } else {
+        // ADD
+        const res = await fetch("http://localhost:8080/enrollments", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        })
+        if (!res.ok) throw new Error("Failed to create enrollment")
+      }
+
+      // Reset form
+      setSelectedStudent("")
+      setSelectedCourse("")
+      setProgress(0)
+      setGrade("")
+      setEditingId(null)
+      fetchEnrollments()
+    } catch (err: any) {
+      console.error(err)
+      setError(err.message || "Failed to save enrollment")
+    }
+  }
+
+  // -------------------------
+  // DELETE ENROLLMENT
+  // -------------------------
+  const deleteEnrollment = async (id: string) => {
+    if (!confirm("Are you sure you want to delete this enrollment?")) return
+    try {
+      const res = await fetch(`http://localhost:8080/enrollments/${id}`, { method: "DELETE" })
+      if (!res.ok) throw new Error("Failed to delete enrollment")
+      fetchEnrollments()
+    } catch (err: any) {
+      console.error(err)
+      setError(err.message || "Failed to delete enrollment")
+    }
+  }
+
+  // -------------------------
+  // EDIT FORM
+  // -------------------------
+  const startEditing = (en: Enrollment) => {
+    setEditingId(en.id)
+    setSelectedStudent(en.student.id)
+    setSelectedCourse(en.course.id)
+    setProgress(en.progress)
+    setGrade(en.grade)
+  }
+
+  // -------------------------
+  // FILTER
+  // -------------------------
   const filteredEnrollments = enrollments.filter(
     (en) =>
       en.student.firstName.toLowerCase().includes(searchTerm.toLowerCase()) ||
       en.student.lastName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      en.course.name.toLowerCase().includes(searchTerm.toLowerCase()),
+      en.course.name.toLowerCase().includes(searchTerm.toLowerCase())
   )
 
   return (
     <div className="max-w-7xl mx-auto px-4 py-12">
-      <div className="mb-8">
-        <div className="flex items-center gap-4 mb-3">
-          <div className="w-12 h-12 bg-gradient-to-br from-primary to-accent rounded-xl flex items-center justify-center shadow-lg">
-            <BookOpen className="w-7 h-7 text-white" />
-          </div>
-          <div>
-            <h1 className="text-4xl font-bold text-foreground">Student Course Enrollment</h1>
-            <p className="text-muted-foreground">Track student progress and grades</p>
-          </div>
+      <div className="mb-8 flex items-center gap-4">
+        <div className="w-12 h-12 bg-gradient-to-br from-primary to-accent rounded-xl flex items-center justify-center shadow-lg">
+          <BookOpen className="w-7 h-7 text-white" />
+        </div>
+        <div>
+          <h1 className="text-4xl font-bold text-foreground">Student Course Enrollment</h1>
+          <p className="text-muted-foreground">Manage enrollments and track progress</p>
         </div>
       </div>
 
-      {/* Search Bar */}
-      <div className="mb-6 relative">
+      {/* Form */}
+      <div className="flex flex-col md:flex-row gap-4 mb-6 items-center">
+        <select
+          className="border border-blue-300 rounded-xl px-5 py-3 w-full md:w-64 focus:outline-none focus:ring-2 focus:ring-blue-400 shadow-md transition"
+          value={selectedStudent}
+          onChange={(e) => setSelectedStudent(e.target.value)}
+        >
+          <option value="">Select Student</option>
+          {students.map((s) => (
+            <option key={s.id} value={s.id}>
+              {s.firstName} {s.lastName}
+            </option>
+          ))}
+        </select>
+
+        <select
+          className="border border-blue-300 rounded-xl px-5 py-3 w-full md:w-64 focus:outline-none focus:ring-2 focus:ring-blue-400 shadow-md transition"
+          value={selectedCourse}
+          onChange={(e) => setSelectedCourse(e.target.value)}
+        >
+          <option value="">Select Course</option>
+          {courses.map((c) => (
+            <option key={c.id} value={c.id}>
+              {c.name}
+            </option>
+          ))}
+        </select>
+
+        <Input
+          type="number"
+          placeholder="Progress %"
+          value={progress}
+          onChange={(e) => setProgress(Number(e.target.value))}
+          className="w-32"
+        />
+
+        <Input
+          placeholder="Grade"
+          value={grade}
+          onChange={(e) => setGrade(e.target.value)}
+          className="w-32"
+        />
+
+        <button
+          onClick={saveEnrollment}
+          className="bg-blue-700 text-white px-5 py-3 rounded-xl shadow-lg hover:bg-blue-800 flex items-center gap-2"
+        >
+          {editingId ? <Edit3 className="w-4 h-4" /> : <PlusCircle className="w-4 h-4" />}
+          {editingId ? "Update" : "Add"}
+        </button>
+      </div>
+
+      {/* Search */}
+      <div className="mb-4 relative">
         <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground" />
         <Input
           placeholder="Search by student or course..."
@@ -90,65 +258,51 @@ export default function StudentCourseView() {
                 <th className="px-6 py-3 text-left font-semibold">Category</th>
                 <th className="px-6 py-3 text-left font-semibold">Progress</th>
                 <th className="px-6 py-3 text-left font-semibold">Grade</th>
+                <th className="px-6 py-3 text-left font-semibold">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-border">
-              {filteredEnrollments.map((en, idx) => (
-                <tr key={en.id} className={idx % 2 === 0 ? "bg-muted/30" : ""}>
-                  <td className="px-6 py-4 font-medium text-foreground">
-                    {en.student.firstName} {en.student.lastName}
+              {filteredEnrollments.length > 0 ? (
+                filteredEnrollments.map((en, idx) => (
+                  <tr key={en.id} className={idx % 2 === 0 ? "bg-muted/30" : ""}>
+                    <td className="px-6 py-4 font-medium">
+                      {en.student.firstName} {en.student.lastName}
+                    </td>
+                    <td className="px-6 py-4">{en.course.name}</td>
+                    <td className="px-6 py-4">{en.course.instructor}</td>
+                    <td className="px-6 py-4">{en.course.category}</td>
+                    <td className="px-6 py-4">{en.progress}%</td>
+                    <td className="px-6 py-4">{en.grade}</td>
+                    <td className="px-6 py-4 flex gap-2">
+                      <button
+                        onClick={() => startEditing(en)}
+                        className="text-yellow-500 hover:text-yellow-600"
+                        title="Edit"
+                      >
+                        <Edit3 className="w-4 h-4" />
+                      </button>
+                      <button
+                        onClick={() => deleteEnrollment(en.id)}
+                        className="text-red-500 hover:text-red-600"
+                        title="Delete"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </td>
+                  </tr>
+                ))
+              ) : (
+                <tr>
+                  <td colSpan={7} className="text-center py-12 text-muted-foreground">
+                    <Users className="w-12 h-12 text-muted-foreground/30 mx-auto mb-3" />
+                    No enrollments found
                   </td>
-                  <td className="px-6 py-4 text-muted-foreground">{en.course.name}</td>
-                  <td className="px-6 py-4 text-muted-foreground">{en.course.instructor}</td>
-                  <td className="px-6 py-4">
-                    <span className="inline-flex px-2 py-1 text-xs font-medium bg-primary/10 text-primary rounded-full">
-                      {en.course.category}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4">
-                    <div className="flex items-center gap-2">
-                      <div className="w-16 bg-border rounded-full h-2">
-                        <div
-                          className="h-full bg-gradient-to-r from-primary to-accent rounded-full"
-                          style={{ width: `${en.progress}%` }}
-                        />
-                      </div>
-                      <span className="text-sm font-medium">{en.progress}%</span>
-                    </div>
-                  </td>
-                  <td className="px-6 py-4 font-semibold text-primary">{en.grade}</td>
                 </tr>
-              ))}
+              )}
             </tbody>
           </table>
         </div>
-        {filteredEnrollments.length === 0 && (
-          <div className="text-center py-12">
-            <Users className="w-12 h-12 text-muted-foreground/30 mx-auto mb-3" />
-            <p className="text-muted-foreground">No enrollments found</p>
-          </div>
-        )}
       </Card>
-
-      {/* Stats */}
-      <div className="mt-8 grid grid-cols-1 md:grid-cols-3 gap-4">
-        <Card className="p-6 bg-gradient-to-br from-primary/10 to-primary/5 border border-primary/20">
-          <p className="text-muted-foreground text-sm font-medium mb-1">Total Enrollments</p>
-          <p className="text-4xl font-bold text-primary">{enrollments.length}</p>
-        </Card>
-        <Card className="p-6 bg-gradient-to-br from-accent/10 to-accent/5 border border-accent/20">
-          <p className="text-muted-foreground text-sm font-medium mb-1">Avg Progress</p>
-          <p className="text-4xl font-bold text-accent">
-            {Math.round(enrollments.reduce((acc, e) => acc + e.progress, 0) / enrollments.length)}%
-          </p>
-        </Card>
-        <Card className="p-6 bg-gradient-to-br from-secondary/10 to-secondary/5 border border-secondary/20">
-          <p className="text-muted-foreground text-sm font-medium mb-1">Avg Credits</p>
-          <p className="text-4xl font-bold text-secondary">
-            {(enrollments.reduce((acc, e) => acc + e.course.credits, 0) / enrollments.length).toFixed(1)}
-          </p>
-        </Card>
-      </div>
     </div>
   )
 }

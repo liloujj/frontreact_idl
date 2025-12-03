@@ -1,5 +1,6 @@
 "use client"
-import { useState } from "react"
+
+import { useState, useEffect } from "react"
 import { Users, Search, Plus, Edit2, Trash2, Mail, BookOpen, TrendingUp, Eye, X } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -15,32 +16,9 @@ interface Student {
 }
 
 export default function StudentDashboard() {
-  const [students, setStudents] = useState<Student[]>([
-    {
-      id: "1",
-      firstName: "Ahmed",
-      lastName: "Benmessaoud",
-      email: "ahmed@univ.edu",
-      university: "Abdelhamid Mehri",
-      enrolledCourses: 4,
-    },
-    {
-      id: "2",
-      firstName: "Fatima",
-      lastName: "Zahra",
-      email: "fatima@univ.edu",
-      university: "Abdelhamid Mehri",
-      enrolledCourses: 3,
-    },
-    {
-      id: "3",
-      firstName: "Mohamed",
-      lastName: "Ali",
-      email: "mohamed@univ.edu",
-      university: "Abdelhamid Mehri",
-      enrolledCourses: 5,
-    },
-  ])
+  const [students, setStudents] = useState<Student[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
   const [searchTerm, setSearchTerm] = useState("")
   const [showForm, setShowForm] = useState(false)
   const [formData, setFormData] = useState({ firstName: "", lastName: "", email: "", university: "" })
@@ -49,46 +27,97 @@ export default function StudentDashboard() {
   const [showDetailsModal, setShowDetailsModal] = useState(false)
   const [showEditModal, setShowEditModal] = useState(false)
 
+  const API_URL = "http://localhost:8080/api/students" // <- adapte selon ton backend / gateway
+
+  // ⚡ Récupération des étudiants depuis le backend
+  useEffect(() => {
+    const fetchStudents = async () => {
+      try {
+        setLoading(true)
+        const res = await fetch(API_URL)
+        if (!res.ok) throw new Error("Erreur lors du chargement des étudiants")
+        const data: Student[] = await res.json()
+        setStudents(data)
+      } catch (err: any) {
+        setError(err.message || "Une erreur est survenue")
+      } finally {
+        setLoading(false)
+      }
+    }
+    fetchStudents()
+  }, [])
+
   const filteredStudents = students.filter(
     (student) =>
       `${student.firstName} ${student.lastName}`.toLowerCase().includes(searchTerm.toLowerCase()) ||
       student.email.toLowerCase().includes(searchTerm.toLowerCase()),
   )
 
-  const handleAddStudent = () => {
+  // Ajouter un étudiant
+  const handleAddStudent = async () => {
     if (formData.firstName && formData.lastName && formData.email) {
-      const newStudent: Student = {
-        id: Date.now().toString(),
-        ...formData,
-        enrolledCourses: 0,
+      try {
+        const res = await fetch(API_URL, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(formData),
+        })
+        if (!res.ok) throw new Error("Erreur lors de l'ajout de l'étudiant")
+        const newStudent: Student = await res.json()
+        setStudents([...students, newStudent])
+        setFormData({ firstName: "", lastName: "", email: "", university: "" })
+        setShowForm(false)
+      } catch (err: any) {
+        alert(err.message)
       }
-      setStudents([...students, newStudent])
-      setFormData({ firstName: "", lastName: "", email: "", university: "" })
-      setShowForm(false)
     }
   }
 
-  const handleDeleteStudent = (id: string) => {
-    setStudents(students.filter((s) => s.id !== id))
+  // Supprimer un étudiant
+  const handleDeleteStudent = async (id: string) => {
+    if (!confirm("Voulez-vous vraiment supprimer cet étudiant ?")) return
+    try {
+      const res = await fetch(`${API_URL}/${id}`, { method: "DELETE" })
+      if (!res.ok) throw new Error("Erreur lors de la suppression")
+      setStudents(students.filter((s) => s.id !== id))
+    } catch (err: any) {
+      alert(err.message)
+    }
   }
 
+  // Voir détails
   const handleViewDetails = (student: Student) => {
     setSelectedStudent(student)
     setShowDetailsModal(true)
   }
 
+  // Editer étudiant
   const handleEditStudent = (student: Student) => {
     setEditingStudent({ ...student })
     setShowEditModal(true)
   }
 
-  const handleSaveEdit = () => {
+  const handleSaveEdit = async () => {
     if (editingStudent) {
-      setStudents(students.map((s) => (s.id === editingStudent.id ? editingStudent : s)))
-      setShowEditModal(false)
-      setEditingStudent(null)
+      try {
+        const res = await fetch(`${API_URL}/${editingStudent.id}`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(editingStudent),
+        })
+        if (!res.ok) throw new Error("Erreur lors de la mise à jour")
+        const updated: Student = await res.json()
+        setStudents(students.map((s) => (s.id === updated.id ? updated : s)))
+        setShowEditModal(false)
+        setEditingStudent(null)
+      } catch (err: any) {
+        alert(err.message)
+      }
     }
   }
+
+  if (loading) return <p className="text-center py-12">Chargement des étudiants...</p>
+  if (error) return <p className="text-center py-12 text-red-500">{error}</p>
 
   return (
     <section className="max-w-7xl mx-auto px-4 py-12">
