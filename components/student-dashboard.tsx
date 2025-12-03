@@ -16,6 +16,20 @@ interface Student {
   address: string
   university: University
 }
+interface StudentEdit {
+  id: string
+  name: string
+  address: string
+  university: {
+    id: string
+  }
+}
+interface Student {
+  id: string
+  name: string
+  address: string
+  university: University
+}
 
 interface University {
   id: string,
@@ -95,7 +109,7 @@ export function StudentDashboard() {
         }
       });
 
-  }, [students]);
+  }, []);
 
 
 
@@ -242,7 +256,9 @@ export function StudentDashboard() {
           console.error("Unexpected error:", err);
         }
       }
-      setStudents(students.map((c) => (c.id === editingStudent.id ? editingStudent : c)))
+      setStudents(prev =>
+        prev.map(s => (s.id === editingStudent.id ? { ...editingStudent } : s))
+      );
       setShowEditModal(false)
       setEditingStudent(null)
     }
@@ -472,11 +488,11 @@ export function StudentDashboard() {
               </div>
               <div>
                 <p className="text-sm text-slate-600 font-medium">University</p>
-                <p className="text-slate-900 font-semibold">{'abdelhamid mehri'}</p>
+                <p className="text-slate-900 font-semibold">{selectedStudent.university.name}</p>
               </div>
               <div>
                 <p className="text-sm text-slate-600 font-medium">Enrolled Courses</p>
-                <p className="text-slate-900 font-semibold">{2}</p>
+                <p className="text-slate-900 font-semibold">{3}</p>
               </div>
               <div>
                 <p className="text-sm text-slate-600 font-medium">Student ID</p>
@@ -513,37 +529,41 @@ export function StudentDashboard() {
                 placeholder="Address"
                 type="text"
                 value={editingStudent.address}
-                onChange={(e) =>{
-                 
-                  setEditingStudent({ ...editingStudent, address: e.target.value })}}
+                onChange={(e) => {
+                  setEditingStudent({ ...editingStudent, address: e.target.value })
+                }}
                 className="bg-slate-50 border-slate-300"
               />
-              <Items value={editingStudent.university.id} className="bg-white border-slate-300"
-                onChange={
+              <Items
+               
+                className="bg-white border-slate-300"
+                onChange={(e) => {
+                  const selectedUniv = universities.find(
+                    (u) => u.id === e.target.value
+                  );
 
-                  (e) => {
-                    alert( e.target.value)
-                    alert(editingStudent.university.name)
-                    setEditingStudent({
+                  if (!selectedUniv) return;
 
-                    ...editingStudent, university: {
-                      id: e.target.value,
-                      name: editingStudent.university.name
+                  alert(selectedUniv.id + " " + selectedUniv.name);
+
+                  setEditingStudent({
+                    ...editingStudent,
+                    university: {
+                      id: selectedUniv.id,
+                      name: selectedUniv.name
                     }
-                  }
-                  )}}>
-
-                <option defaultValue={editingStudent.university.id} disabled>
-                  Select a university
-                </option>
+                  });
+                }}
+              >
+                <option value="" disabled>Select a university</option>
                 {universities.map((u) => (
                   <option key={u.id} value={u.id}>
                     {u.name}
                   </option>
                 ))}
-
-
               </Items>
+
+
             </div>
             <div className="flex gap-2 mt-6">
               <Button

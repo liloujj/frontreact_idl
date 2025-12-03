@@ -20,8 +20,7 @@ export function CourseDashboard() {
   const [courses, setCourses] = useState<Course[]>([]);
 
 
-  useEffect(() => {
-
+  const fetchStudents = () => {
     axios.get("http://127.0.0.1:8001/api/course/all", { timeout: 5000 })
       .then(res => {
 
@@ -49,8 +48,13 @@ export function CourseDashboard() {
           console.error("Axios error:", err.message);
         }
       });
+  }
 
-  }, [courses]);
+  useEffect(() => {
+
+    fetchStudents()
+
+  }, []);
 
 
 
@@ -82,6 +86,7 @@ export function CourseDashboard() {
           schedule: formData.schedule
         });
         setCourses(res.data);
+        fetchStudents()
         setFormData({ name: "", category: "", instructor: "", schedule: "" });
         setShowForm(false);
 
@@ -161,6 +166,7 @@ export function CourseDashboard() {
             timeout: 5000,
           }
         );
+        fetchStudents()
         console.log("✅ course updated:", res.status, res.data);
 
       } catch (err: any) {
